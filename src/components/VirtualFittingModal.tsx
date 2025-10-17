@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Upload, Camera, ThumbsUp, ThumbsDown, Sparkles, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
-import { uploadUserPhoto, simulateTryOn, saveUserResult } from "@/lib/virtualFitting";
+import { uploadUserPhoto, simulateTryOn, saveUserResult } from "@/lib/tryOnSimulation";
 
 interface VirtualFittingModalProps {
   isOpen: boolean;
@@ -195,7 +195,10 @@ export const VirtualFittingModal = ({
                             className="w-full aspect-square object-cover rounded-xl"
                           />
                           <button
-                            onClick={() => setUploadedImage(null)}
+                            onClick={() => {
+                              setUploadedImage(null);
+                              setUploadedFile(null);
+                            }}
                             className="absolute top-2 right-2 bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-full hover:bg-background transition-colors"
                           >
                             <X size={16} />
