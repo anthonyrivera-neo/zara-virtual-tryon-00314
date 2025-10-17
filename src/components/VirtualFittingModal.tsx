@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Upload, Camera, ThumbsUp, ThumbsDown, Sparkles } from "lucide-react";
+import { X, Upload, Camera, ThumbsUp, ThumbsDown, Sparkles, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { uploadUserPhoto, simulateTryOn, saveUserResult } from "@/lib/virtualFitting";
 
 interface VirtualFittingModalProps {
   isOpen: boolean;
@@ -23,12 +24,16 @@ export const VirtualFittingModal = ({
 }: VirtualFittingModalProps) => {
   const [step, setStep] = useState<Step>("upload");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setUploadedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImage(reader.result as string);
@@ -37,31 +42,73 @@ export const VirtualFittingModal = ({
     }
   };
 
-  const handleTryOn = () => {
+  const handleTryOn = async () => {
+    if (!uploadedFile || !selectedProduct) return;
+
     setIsProcessing(true);
-    // Simulate AI processing
-    setTimeout(() => {
-      setIsProcessing(false);
+    
+    try {
+      // Subir foto del usuario a Supabase Storage
+      toast.loading("Subiendo tu foto...");
+      const photoUrl = await uploadUserPhoto(uploadedFile);
+      setUploadedPhotoUrl(photoUrl);
+      
+      // Simular procesamiento con IA
+      toast.loading("Procesando tu imagen...", { id: "processing" });
+      const result = await simulateTryOn(photoUrl, selectedProduct.name);
+      setResultUrl(result);
+      
+      toast.dismiss("processing");
+      toast.success("¡Simulación completada!");
       setStep("result");
-    }, 2500);
+    } catch (error) {
+      console.error("Error in try-on:", error);
+      toast.error("Error al procesar la imagen. Inténtalo de nuevo.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleFeedback = (positive: boolean) => {
-    toast.success(
-      positive
-        ? "¡Gracias! Me alegra que te guste cómo se ve"
-        : "Gracias por tu feedback. ¿Te gustaría probar otra prenda?"
-    );
-    setTimeout(() => {
-      handleClose();
-    }, 2000);
+  const handleFeedback = async (positive: boolean) => {
+    if (!uploadedPhotoUrl || !selectedProduct || !resultUrl) return;
+
+    try {
+      await saveUserResult(
+        uploadedPhotoUrl,
+        selectedProduct.image,
+        selectedProduct.name,
+        resultUrl,
+        positive ? 'like' : 'dislike'
+      );
+
+      toast.success(
+        positive
+          ? "¡Gracias! Me alegra que te guste cómo se ve"
+          : "Gracias por tu feedback. ¿Te gustaría probar otra prenda?"
+      );
+      
+      setTimeout(() => {
+        handleClose();
+      }, 2000);
+    } catch (error) {
+      console.error("Error saving feedback:", error);
+      toast.error("Error al guardar tu feedback");
+    }
   };
 
   const handleClose = () => {
     setStep("upload");
     setUploadedImage(null);
+    setUploadedPhotoUrl(null);
+    setResultUrl(null);
+    setUploadedFile(null);
     setIsProcessing(false);
     onClose();
+  };
+
+  const handleRetry = () => {
+    setStep("upload");
+    setResultUrl(null);
   };
 
   if (!isOpen || !selectedProduct) return null;
@@ -231,33 +278,50 @@ export const VirtualFittingModal = ({
                   {/* Result Image - Simulated combined view */}
                   <div className="relative">
                     <img
-                      src={uploadedImage || selectedProduct.image}
+                      src={resultUrl || uploadedImage || selectedProduct.image}
                       alt="Result"
                       className="w-full max-w-md mx-auto aspect-[3/4] object-cover rounded-xl shadow-lg"
                     />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="bg-background/80 backdrop-blur-sm px-6 py-3 rounded-full">
-                        <p className="text-sm font-medium">Simulación IA</p>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                      <div className="bg-background/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <Sparkles size={16} className="text-accent" />
+                          Simulación IA
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Feedback Buttons */}
-                  <div className="flex items-center justify-center gap-4 pt-4">
-                    <button
-                      onClick={() => handleFeedback(false)}
-                      className="flex items-center gap-2 px-6 py-3 bg-secondary hover:bg-muted text-foreground rounded-full transition-colors"
-                    >
-                      <ThumbsDown size={20} />
-                      <span className="font-medium">No me convence</span>
-                    </button>
-                    <button
-                      onClick={() => handleFeedback(true)}
-                      className="flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full transition-colors"
-                    >
-                      <ThumbsUp size={20} />
-                      <span className="font-medium">¡Me encanta!</span>
-                    </button>
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
+                    {/* Retry Button */}
+                    <div className="flex justify-center">
+                      <button
+                        onClick={handleRetry}
+                        className="flex items-center gap-2 px-6 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <RotateCcw size={16} />
+                        <span>Volver a intentar</span>
+                      </button>
+                    </div>
+
+                    {/* Feedback Buttons */}
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        onClick={() => handleFeedback(false)}
+                        className="flex items-center gap-2 px-6 py-3 bg-secondary hover:bg-muted text-foreground rounded-full transition-colors"
+                      >
+                        <ThumbsDown size={20} />
+                        <span className="font-medium">No me convence</span>
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(true)}
+                        className="flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full transition-colors"
+                      >
+                        <ThumbsUp size={20} />
+                        <span className="font-medium">¡Me encanta!</span>
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               )}
