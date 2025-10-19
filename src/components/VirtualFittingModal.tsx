@@ -65,11 +65,16 @@ export const VirtualFittingModal = ({
       const photoUrl = await uploadUserPhoto(uploadedFile);
       setUploadedPhotoUrl(photoUrl);
       
+      // Convertir URL relativa del producto a URL absoluta
+      const productPhotoUrl = selectedProduct.image.startsWith('http') 
+        ? selectedProduct.image 
+        : `${window.location.origin}${selectedProduct.image}`;
+      
       // Generar imagen con IA real
-      toast.loading("Procesando con IA generativa... Esto puede tomar 30-60 segundos", { id: toastId });
+      toast.loading("Conectando con el modelo de IA... Esto puede tomar 30-60 segundos", { id: toastId });
       const result = await generateVirtualTryOn(
         photoUrl, 
-        selectedProduct.image,
+        productPhotoUrl,
         selectedProduct.name
       );
       setResultUrl(result);
@@ -78,7 +83,9 @@ export const VirtualFittingModal = ({
       setStep("result");
     } catch (error) {
       console.error("Error in try-on:", error);
-      const errorMessage = error instanceof Error ? error.message : "Error al procesar la imagen. Inténtalo de nuevo.";
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "No pudimos generar la simulación. Revisa tu conexión o intenta con otra foto.";
       toast.error(errorMessage, { id: toastId });
     } finally {
       setIsProcessing(false);

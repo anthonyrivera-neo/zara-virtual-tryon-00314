@@ -25,22 +25,53 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(
+        JSON.stringify({ error: "AI service not configured" }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500 
+        }
+      );
     }
 
     console.log("Starting virtual try-on generation...");
     console.log("User photo:", userPhotoUrl);
     console.log("Product photo:", productPhotoUrl);
 
+    // Validate URLs
+    try {
+      new URL(userPhotoUrl);
+      new URL(productPhotoUrl);
+    } catch (urlError) {
+      console.error("Invalid URL provided:", urlError);
+      return new Response(
+        JSON.stringify({ error: "Invalid URL: Las URLs de las imágenes no son válidas" }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
+    }
+
     // Fetch both images
+    console.log("Fetching images from URLs...");
     const [userImageRes, productImageRes] = await Promise.all([
       fetch(userPhotoUrl),
       fetch(productPhotoUrl)
     ]);
 
-    if (!userImageRes.ok || !productImageRes.ok) {
-      throw new Error("Failed to fetch one or both images");
+    if (!userImageRes.ok) {
+      console.error("Failed to fetch user photo:", userImageRes.status, userImageRes.statusText);
+      throw new Error(`Failed to fetch user photo: ${userImageRes.status}`);
     }
+    
+    if (!productImageRes.ok) {
+      console.error("Failed to fetch product photo:", productImageRes.status, productImageRes.statusText);
+      throw new Error(`Failed to fetch product photo: ${productImageRes.status}`);
+    }
+    
+    console.log("Images fetched successfully");
 
     // Convert images to base64
     const userImageBuffer = await userImageRes.arrayBuffer();
@@ -138,10 +169,13 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Error in virtual-tryon:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    console.error("Error in virtual-tryon:", errorMessage);
+    console.error("Full error:", error);
+    
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error: errorMessage,
         details: "Failed to generate virtual try-on image"
       }),
       { 
