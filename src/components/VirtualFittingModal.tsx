@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Upload, Camera, ThumbsUp, ThumbsDown, Sparkles, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
-import { uploadUserPhoto, simulateTryOn, saveUserResult } from "@/lib/tryOnSimulation";
+import { uploadUserPhoto, generateVirtualTryOn, saveUserResult } from "@/lib/tryOnSimulation";
+import { CameraCapture } from "./CameraCapture";
 
 interface VirtualFittingModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const VirtualFittingModal = ({
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,28 +44,42 @@ export const VirtualFittingModal = ({
     }
   };
 
+  const handleCameraCapture = (file: File) => {
+    setUploadedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUploadedImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    setShowCamera(false);
+  };
+
   const handleTryOn = async () => {
     if (!uploadedFile || !selectedProduct) return;
 
     setIsProcessing(true);
+    const toastId = toast.loading("Subiendo tu foto...");
     
     try {
       // Subir foto del usuario a Supabase Storage
-      toast.loading("Subiendo tu foto...");
       const photoUrl = await uploadUserPhoto(uploadedFile);
       setUploadedPhotoUrl(photoUrl);
       
-      // Simular procesamiento con IA
-      toast.loading("Procesando tu imagen...", { id: "processing" });
-      const result = await simulateTryOn(photoUrl, selectedProduct.name);
+      // Generar imagen con IA real
+      toast.loading("Procesando con IA generativa... Esto puede tomar 30-60 segundos", { id: toastId });
+      const result = await generateVirtualTryOn(
+        photoUrl, 
+        selectedProduct.image,
+        selectedProduct.name
+      );
       setResultUrl(result);
       
-      toast.dismiss("processing");
-      toast.success("¡Simulación completada!");
+      toast.success("¡Imagen generada con IA exitosamente!", { id: toastId });
       setStep("result");
     } catch (error) {
       console.error("Error in try-on:", error);
-      toast.error("Error al procesar la imagen. Inténtalo de nuevo.");
+      const errorMessage = error instanceof Error ? error.message : "Error al procesar la imagen. Inténtalo de nuevo.";
+      toast.error(errorMessage, { id: toastId });
     } finally {
       setIsProcessing(false);
     }
@@ -103,6 +119,7 @@ export const VirtualFittingModal = ({
     setResultUrl(null);
     setUploadedFile(null);
     setIsProcessing(false);
+    setShowCamera(false);
     onClose();
   };
 
@@ -115,7 +132,13 @@ export const VirtualFittingModal = ({
 
   return (
     <AnimatePresence>
-      {isOpen && (
+      {showCamera && (
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+      {isOpen && !showCamera && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -205,18 +228,39 @@ export const VirtualFittingModal = ({
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-4 hover:border-accent hover:bg-secondary/50 transition-all group"
-                        >
-                          <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center group-hover:bg-accent/10 transition-colors">
-                            <Camera className="text-muted-foreground group-hover:text-accent transition-colors" size={28} />
+                        <div className="space-y-3">
+                          <button
+                            onClick={() => setShowCamera(true)}
+                            className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-4 hover:border-accent hover:bg-secondary/50 transition-all group"
+                          >
+                            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center group-hover:bg-accent/10 transition-colors">
+                              <Camera className="text-muted-foreground group-hover:text-accent transition-colors" size={28} />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-foreground">Tomar foto</p>
+                              <p className="text-xs text-muted-foreground mt-1">con tu cámara</p>
+                            </div>
+                          </button>
+                          
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-border"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs">
+                              <span className="bg-white px-2 text-muted-foreground">o</span>
+                            </div>
                           </div>
-                          <div className="text-center">
-                            <p className="text-sm font-medium text-foreground">Sube tu foto</p>
-                            <p className="text-xs text-muted-foreground mt-1">o haz clic para seleccionar</p>
-                          </div>
-                        </button>
+
+                          <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full py-4 border-2 border-dashed border-border rounded-xl flex items-center justify-center gap-3 hover:border-accent hover:bg-secondary/50 transition-all group"
+                          >
+                            <Upload className="text-muted-foreground group-hover:text-accent transition-colors" size={20} />
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-foreground">Subir foto</p>
+                            </div>
+                          </button>
+                        </div>
                       )}
                       <input
                         ref={fileInputRef}
@@ -238,12 +282,12 @@ export const VirtualFittingModal = ({
                       {isProcessing ? (
                         <>
                           <Sparkles className="animate-spin mr-2" size={20} />
-                          Procesando tu imagen...
+                          Procesando con IA...
                         </>
                       ) : (
                         <>
-                          <Upload className="mr-2" size={20} />
-                          Probar prenda
+                          <Sparkles className="mr-2" size={20} />
+                          Generar con IA
                         </>
                       )}
                     </Button>
@@ -252,7 +296,7 @@ export const VirtualFittingModal = ({
                   {!uploadedImage && (
                     <div className="text-center pt-4">
                       <p className="text-xs text-muted-foreground">
-                        Vista de prueba – Simulación generada por AI
+                        Powered by Lovable AI • Generación realista con IA
                       </p>
                     </div>
                   )}
@@ -278,7 +322,7 @@ export const VirtualFittingModal = ({
                     <p className="text-muted-foreground text-sm">¿Te gusta cómo se ve?</p>
                   </div>
 
-                  {/* Result Image - Simulated combined view */}
+                  {/* Result Image - AI Generated */}
                   <div className="relative">
                     <img
                       src={resultUrl || uploadedImage || selectedProduct.image}
@@ -289,7 +333,7 @@ export const VirtualFittingModal = ({
                       <div className="bg-background/90 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg">
                         <p className="text-sm font-medium flex items-center gap-2">
                           <Sparkles size={16} className="text-accent" />
-                          Simulación IA
+                          Generado con IA
                         </p>
                       </div>
                     </div>

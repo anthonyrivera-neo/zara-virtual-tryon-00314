@@ -1,0 +1,153 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { userPhotoUrl, productPhotoUrl, productName } = await req.json();
+    
+    if (!userPhotoUrl || !productPhotoUrl) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: userPhotoUrl and productPhotoUrl are required" }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    console.log("Starting virtual try-on generation...");
+    console.log("User photo:", userPhotoUrl);
+    console.log("Product photo:", productPhotoUrl);
+
+    // Fetch both images
+    const [userImageRes, productImageRes] = await Promise.all([
+      fetch(userPhotoUrl),
+      fetch(productPhotoUrl)
+    ]);
+
+    if (!userImageRes.ok || !productImageRes.ok) {
+      throw new Error("Failed to fetch one or both images");
+    }
+
+    // Convert images to base64
+    const userImageBuffer = await userImageRes.arrayBuffer();
+    const productImageBuffer = await productImageRes.arrayBuffer();
+    
+    const userImageBase64 = btoa(String.fromCharCode(...new Uint8Array(userImageBuffer)));
+    const productImageBase64 = btoa(String.fromCharCode(...new Uint8Array(productImageBuffer)));
+
+    const userImageDataUrl = `data:image/jpeg;base64,${userImageBase64}`;
+    const productImageDataUrl = `data:image/jpeg;base64,${productImageBase64}`;
+
+    // Call Lovable AI to merge the images
+    const prompt = `Create a realistic fashion photo showing the person from the first image wearing the garment from the second image. 
+    Preserve the person's face, pose, body proportions, and background from the first image. 
+    Seamlessly blend the clothing item from the second image onto the person, ensuring proper fit, lighting, shadows, and fabric draping. 
+    Maintain realistic lighting and a clean, editorial aesthetic similar to high-end fashion photography. 
+    The result should look natural and professional, as if the person is actually wearing that garment.`;
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: userImageDataUrl
+                }
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: productImageDataUrl
+                }
+              }
+            ]
+          }
+        ],
+        modalities: ["image", "text"]
+      })
+    });
+
+    if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 429 
+          }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Payment required. Please add credits to your Lovable AI workspace." }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 402 
+          }
+        );
+      }
+      const errorText = await aiResponse.text();
+      console.error("AI gateway error:", aiResponse.status, errorText);
+      throw new Error(`AI gateway error: ${aiResponse.status}`);
+    }
+
+    const aiData = await aiResponse.json();
+    console.log("AI response received");
+
+    const generatedImageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    if (!generatedImageUrl) {
+      throw new Error("No image generated from AI");
+    }
+
+    console.log("Virtual try-on generated successfully");
+
+    return new Response(
+      JSON.stringify({ resultUrl: generatedImageUrl }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    );
+
+  } catch (error) {
+    console.error("Error in virtual-tryon:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+        details: "Failed to generate virtual try-on image"
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
+      }
+    );
+  }
+});

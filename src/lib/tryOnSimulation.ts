@@ -24,28 +24,37 @@ export async function uploadUserPhoto(file: File): Promise<string> {
 }
 
 /**
- * Simulates AI try-on process
- * In production, this would call a real AI model
+ * Generates virtual try-on using real AI
  */
-export async function simulateTryOn(
+export async function generateVirtualTryOn(
   userPhotoUrl: string,
+  productPhotoUrl: string,
   productName: string
 ): Promise<string> {
-  // Simulate AI processing delay
-  await new Promise(resolve => setTimeout(resolve, 2500));
-
-  // Fetch mock result from simulations table
-  const { data, error } = await supabase
-    .from('simulations')
-    .select('result_url')
-    .eq('product_name', productName)
-    .maybeSingle();
+  const { data, error } = await supabase.functions.invoke('virtual-tryon', {
+    body: {
+      userPhotoUrl,
+      productPhotoUrl,
+      productName
+    }
+  });
 
   if (error) {
-    console.error('Error fetching simulation:', error);
+    console.error('Error generating virtual try-on:', error);
+    throw new Error('Error al procesar la imagen con IA');
   }
 
-  return data?.result_url || 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800';
+  if (data?.error) {
+    if (data.error.includes('Rate limit')) {
+      throw new Error('Límite de uso alcanzado. Intenta de nuevo en unos momentos.');
+    }
+    if (data.error.includes('Payment required')) {
+      throw new Error('Se requieren créditos adicionales en tu cuenta.');
+    }
+    throw new Error(data.error);
+  }
+
+  return data.resultUrl;
 }
 
 /**
