@@ -73,12 +73,23 @@ serve(async (req) => {
     
     console.log("Images fetched successfully");
 
-    // Convert images to base64
+    // Convert images to base64 (handling large images without stack overflow)
     const userImageBuffer = await userImageRes.arrayBuffer();
     const productImageBuffer = await productImageRes.arrayBuffer();
     
-    const userImageBase64 = btoa(String.fromCharCode(...new Uint8Array(userImageBuffer)));
-    const productImageBase64 = btoa(String.fromCharCode(...new Uint8Array(productImageBuffer)));
+    const userImageBase64 = arrayBufferToBase64(userImageBuffer);
+    const productImageBase64 = arrayBufferToBase64(productImageBuffer);
+    
+    function arrayBufferToBase64(buffer: ArrayBuffer): string {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      return btoa(binary);
+    }
 
     const userImageDataUrl = `data:image/jpeg;base64,${userImageBase64}`;
     const productImageDataUrl = `data:image/jpeg;base64,${productImageBase64}`;
