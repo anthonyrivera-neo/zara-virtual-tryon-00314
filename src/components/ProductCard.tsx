@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Eye } from "lucide-react";
+import { useShop } from "@/contexts/ShopContext";
 
 interface ProductCardProps {
   id: string;
@@ -10,6 +11,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard = ({ name, price, image, onTryOn }: ProductCardProps) => {
+  const { isTryOnModeActive } = useShop();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -23,17 +25,19 @@ export const ProductCard = ({ name, price, image, onTryOn }: ProductCardProps) =
           alt={name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-            <button
-              onClick={onTryOn}
-              className="flex items-center gap-2 px-6 py-3 bg-white text-charcoal rounded-full font-medium hover:bg-accent hover:text-accent-foreground transition-all shadow-lg"
-            >
-              <Eye size={18} />
-              Probar prenda
-            </button>
+        {isTryOnModeActive && (
+          <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+              <button
+                onClick={onTryOn}
+                className="flex items-center gap-2 px-6 py-3 bg-white text-charcoal rounded-full font-medium hover:bg-accent hover:text-accent-foreground transition-all shadow-lg"
+              >
+                <Eye size={18} />
+                Probar prenda
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       <div className="space-y-1">
         <h3 className="font-medium text-foreground">{name}</h3>

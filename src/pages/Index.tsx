@@ -2,6 +2,8 @@ import { useState } from "react";
 import { FloatingButton } from "@/components/FloatingButton";
 import { VirtualFittingModal } from "@/components/VirtualFittingModal";
 import { ProductCard } from "@/components/ProductCard";
+import { ChatbotAgent } from "@/components/ChatbotAgent";
+import { useShop } from "@/contexts/ShopContext";
 import productTshirt from "@/assets/product-tshirt.jpg";
 import productJacket from "@/assets/product-jacket.jpg";
 import productCoat from "@/assets/product-coat.jpg";
@@ -29,11 +31,14 @@ const products = [
 
 const Index = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<typeof products[0] | null>(null);
+  const { addTriedProduct } = useShop();
 
   const handleTryOn = (product: typeof products[0]) => {
     setSelectedProduct(product);
     setIsModalOpen(true);
+    addTriedProduct(product);
   };
 
   return (
@@ -182,7 +187,14 @@ const Index = () => {
       </footer>
 
       {/* Floating Button */}
-      <FloatingButton onClick={() => setIsModalOpen(true)} />
+      <FloatingButton onChatClick={() => setIsChatbotOpen(true)} />
+
+      {/* Chatbot Agent */}
+      <ChatbotAgent
+        isOpen={isChatbotOpen}
+        onClose={() => setIsChatbotOpen(false)}
+        products={products}
+      />
 
       {/* Virtual Fitting Modal */}
       <VirtualFittingModal

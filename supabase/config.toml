@@ -60,3 +60,6 @@ inspector_port = 54321
 
 [functions.virtual-tryon]
 verify_jwt = false
+
+[functions.chatbot-agent]
+verify_jwt = false
