@@ -72,9 +72,30 @@ serve(async (req) => {
       );
     }
 
-    // Use original URLs directly with the AI model (avoid huge base64 payloads)
+    console.log("Preparing images for AI...");
+    // Convert product image to base64 data URL to ensure external provider can read it
+    const productRes = await fetch(productPhotoUrl);
+    if (!productRes.ok) {
+      console.error("Failed to fetch product image for conversion:", productRes.status, productRes.statusText);
+      return new Response(
+        JSON.stringify({ error: "No se pudo obtener la imagen de la prenda." }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    const productBuffer = await productRes.arrayBuffer();
+    function arrayBufferToBase64(buffer: ArrayBuffer): string {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      return btoa(binary);
+    }
+    const productMime = productRes.headers.get('content-type') || 'image/jpeg';
+    const productDataUrl = `data:${productMime};base64,${arrayBufferToBase64(productBuffer)}`;
     const userImageUrl = userPhotoUrl;
-    const productImageUrl = productPhotoUrl;
 
     // Call Lovable AI to merge the images
     const prompt = `Create a realistic fashion photo showing the person from the first image wearing the garment from the second image. 
@@ -108,7 +129,7 @@ serve(async (req) => {
               {
                 type: "image_url",
                 image_url: {
-                  url: productImageUrl
+                  url: productDataUrl
                 }
               }
             ]
@@ -122,24 +143,28 @@ serve(async (req) => {
       if (aiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 429 
-          }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
         );
       }
       if (aiResponse.status === 402) {
         return new Response(
           JSON.stringify({ error: "Payment required. Please add credits to your Lovable AI workspace." }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 402 
-          }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 402 }
         );
       }
       const errorText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errorText);
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      let message = "AI gateway error";
+      try {
+        const parsed = JSON.parse(errorText);
+        message = parsed?.error?.message || message;
+      } catch (_) {
+        // ignore parse error
+      }
+      return new Response(
+        JSON.stringify({ error: message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: aiResponse.status }
+      );
     }
 
     const aiData = await aiResponse.json();
