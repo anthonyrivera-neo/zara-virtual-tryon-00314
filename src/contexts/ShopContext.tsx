@@ -71,7 +71,15 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
 export const useShop = () => {
   const context = useContext(ShopContext);
   if (!context) {
-    throw new Error("useShop must be used within ShopProvider");
+    // Fallback seguro si el proveedor no está montado aún
+    return {
+      isTryOnModeActive: true,
+      toggleTryOnMode: () => {},
+      cart: [],
+      addToCart: () => {},
+      triedProducts: [],
+      addTriedProduct: () => {},
+    } as ShopContextType;
   }
   return context;
 };

@@ -16,7 +16,7 @@ export const FloatingButton = ({ onChatClick }: FloatingButtonProps) => {
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.95 }}
       onClick={onChatClick}
-      className="fixed bottom-8 right-8 w-16 h-16 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-2xl flex items-center justify-center z-40 transition-all hover:shadow-accent/30 relative"
+      className="fixed bottom-8 right-8 w-16 h-16 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-2xl flex items-center justify-center z-50 transition-all hover:shadow-accent/30 relative"
     >
       <Shirt size={28} />
       {isTryOnModeActive && (

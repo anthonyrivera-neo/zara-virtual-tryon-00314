@@ -54,45 +54,27 @@ serve(async (req) => {
       );
     }
 
-    // Fetch both images
-    console.log("Fetching images from URLs...");
-    const [userImageRes, productImageRes] = await Promise.all([
-      fetch(userPhotoUrl),
-      fetch(productPhotoUrl)
+    // Verify input URLs are publicly accessible (HEAD request)
+    console.log("Verifying public accessibility for images...");
+    const [userHead, productHead] = await Promise.all([
+      fetch(userPhotoUrl, { method: "HEAD" }),
+      fetch(productPhotoUrl, { method: "HEAD" })
     ]);
 
-    if (!userImageRes.ok) {
-      console.error("Failed to fetch user photo:", userImageRes.status, userImageRes.statusText);
-      throw new Error(`Failed to fetch user photo: ${userImageRes.status}`);
-    }
-    
-    if (!productImageRes.ok) {
-      console.error("Failed to fetch product photo:", productImageRes.status, productImageRes.statusText);
-      throw new Error(`Failed to fetch product photo: ${productImageRes.status}`);
-    }
-    
-    console.log("Images fetched successfully");
-
-    // Convert images to base64 (handling large images without stack overflow)
-    const userImageBuffer = await userImageRes.arrayBuffer();
-    const productImageBuffer = await productImageRes.arrayBuffer();
-    
-    const userImageBase64 = arrayBufferToBase64(userImageBuffer);
-    const productImageBase64 = arrayBufferToBase64(productImageBuffer);
-    
-    function arrayBufferToBase64(buffer: ArrayBuffer): string {
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-        binary += String.fromCharCode.apply(null, Array.from(chunk));
-      }
-      return btoa(binary);
+    if (!userHead.ok || !productHead.ok) {
+      console.error("Image URLs not publicly accessible", {
+        userStatus: userHead.status,
+        productStatus: productHead.status,
+      });
+      return new Response(
+        JSON.stringify({ error: "Las imágenes no son públicas o accesibles." }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
-    const userImageDataUrl = `data:image/jpeg;base64,${userImageBase64}`;
-    const productImageDataUrl = `data:image/jpeg;base64,${productImageBase64}`;
+    // Use original URLs directly with the AI model (avoid huge base64 payloads)
+    const userImageUrl = userPhotoUrl;
+    const productImageUrl = productPhotoUrl;
 
     // Call Lovable AI to merge the images
     const prompt = `Create a realistic fashion photo showing the person from the first image wearing the garment from the second image. 
@@ -120,13 +102,13 @@ serve(async (req) => {
               {
                 type: "image_url",
                 image_url: {
-                  url: userImageDataUrl
+                  url: userImageUrl
                 }
               },
               {
                 type: "image_url",
                 image_url: {
-                  url: productImageDataUrl
+                  url: productImageUrl
                 }
               }
             ]
@@ -164,9 +146,13 @@ serve(async (req) => {
     console.log("AI response received");
 
     const generatedImageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    
+
     if (!generatedImageUrl) {
-      throw new Error("No image generated from AI");
+      console.error("AI did not return image_url. Full payload:", JSON.stringify(aiData).slice(0, 500));
+      return new Response(
+        JSON.stringify({ error: "No se pudo generar la simulación, intenta con otra foto o prenda." }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
     console.log("Virtual try-on generated successfully");
@@ -180,18 +166,18 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const status = (error as any)?.status ?? 500;
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     console.error("Error in virtual-tryon:", errorMessage);
     console.error("Full error:", error);
-    
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: errorMessage,
         details: "Failed to generate virtual try-on image"
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
+        status: status === 400 || status === 402 || status === 429 ? status : 500,
       }
     );
   }
