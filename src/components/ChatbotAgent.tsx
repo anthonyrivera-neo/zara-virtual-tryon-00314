@@ -4,6 +4,7 @@ import { X, Send, ShoppingCart, Shirt, Loader2 } from "lucide-react";
 import { useShop } from "@/contexts/ShopContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 interface Message {
   role: "user" | "assistant";
@@ -142,12 +143,19 @@ export const ChatbotAgent = ({ isOpen, onClose, products }: ChatbotAgentProps) =
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-1">
               <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center">
                 <Shirt className="w-5 h-5 text-accent-foreground" />
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Asistente de Moda</h3>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-foreground">Asistente de Moda</h3>
+                  <Switch
+                    checked={isTryOnModeActive}
+                    onCheckedChange={toggleTryOnMode}
+                    className="scale-75"
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {isTryOnModeActive ? "Modo prueba activo" : "Modo prueba inactivo"}
                 </p>
