@@ -95,11 +95,12 @@ const Index = () => {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              {...product}
-              onTryOn={() => handleTryOn(product)}
-            />
+            <div key={product.id} id={`product-${product.id}`} className="transition-all duration-300">
+              <ProductCard
+                {...product}
+                onTryOn={() => handleTryOn(product)}
+              />
+            </div>
           ))}
         </div>
       </section>

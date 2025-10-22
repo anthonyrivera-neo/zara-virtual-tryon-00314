@@ -8,6 +8,12 @@ import { toast } from "sonner";
 interface Message {
   role: "user" | "assistant";
   content: string;
+  products?: Array<{
+    id: string;
+    name: string;
+    price: string;
+    image: string;
+  }>;
 }
 
 interface ChatbotAgentProps {
@@ -63,6 +69,7 @@ export const ChatbotAgent = ({ isOpen, onClose, products }: ChatbotAgentProps) =
           message: userMessage,
           context,
           conversationHistory: messages,
+          products: products,
         },
       });
 
@@ -71,8 +78,9 @@ export const ChatbotAgent = ({ isOpen, onClose, products }: ChatbotAgentProps) =
       // Procesar respuesta del agente
       const response = data.response;
       const action = data.action;
+      const mentionedProducts = data.products || [];
 
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: response, products: mentionedProducts }]);
 
       // Ejecutar acciones
       if (action?.type === "toggle_tryon") {
@@ -105,6 +113,17 @@ export const ChatbotAgent = ({ isOpen, onClose, products }: ChatbotAgentProps) =
     }
   };
 
+  const handleProductClick = (productId: string) => {
+    const element = document.getElementById(`product-${productId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      element.classList.add("ring-2", "ring-accent", "ring-offset-2");
+      setTimeout(() => {
+        element.classList.remove("ring-2", "ring-accent", "ring-offset-2");
+      }, 2000);
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -119,7 +138,7 @@ export const ChatbotAgent = ({ isOpen, onClose, products }: ChatbotAgentProps) =
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="fixed bottom-24 right-8 w-96 h-[32rem] bg-white dark:bg-card rounded-2xl shadow-2xl flex flex-col z-50 border border-border"
+          className="fixed bottom-24 left-8 w-96 h-[32rem] bg-white dark:bg-card rounded-2xl shadow-2xl flex flex-col z-50 border border-border"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
@@ -161,6 +180,38 @@ export const ChatbotAgent = ({ isOpen, onClose, products }: ChatbotAgentProps) =
                   style={{ fontFamily: "Montserrat, sans-serif" }}
                 >
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  
+                  {/* Product Preview Cards */}
+                  {msg.products && msg.products.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {msg.products.map((product) => (
+                        <div
+                          key={product.id}
+                          className="bg-background border border-border rounded-lg p-2 flex gap-3 items-center hover:shadow-md transition-shadow"
+                        >
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              {product.name}
+                            </p>
+                            <p className="text-xs text-accent font-bold">
+                              {product.price}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleProductClick(product.id)}
+                            className="px-3 py-1 bg-accent text-accent-foreground rounded-full text-xs hover:opacity-90 transition-opacity whitespace-nowrap"
+                          >
+                            Ver 🔗
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

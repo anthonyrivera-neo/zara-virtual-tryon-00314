@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, context, conversationHistory } = await req.json();
+    const { message, context, conversationHistory, products } = await req.json();
 
     console.log("Chatbot request:", { message, context });
 
@@ -113,6 +113,15 @@ Formato de respuesta:
     const choice = data.choices[0];
     let responseText = choice.message.content || "¿En qué más te puedo ayudar?";
     let action = null;
+    let mentionedProducts = [];
+
+    // Detectar productos mencionados en la respuesta
+    if (products && products.length > 0) {
+      const lowerResponse = responseText.toLowerCase();
+      mentionedProducts = products.filter((p: any) => 
+        lowerResponse.includes(p.name.toLowerCase())
+      );
+    }
 
     // Procesar tool calls si existen
     if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
@@ -137,6 +146,7 @@ Formato de respuesta:
       JSON.stringify({
         response: responseText,
         action,
+        products: mentionedProducts,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
