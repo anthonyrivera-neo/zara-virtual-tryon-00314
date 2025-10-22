@@ -115,12 +115,21 @@ Formato de respuesta:
     let action = null;
     let mentionedProducts = [];
 
-    // Detectar productos mencionados en la respuesta
+    // Detectar productos mencionados en la respuesta con búsqueda flexible
     if (products && products.length > 0) {
       const lowerResponse = responseText.toLowerCase();
-      mentionedProducts = products.filter((p: any) => 
-        lowerResponse.includes(p.name.toLowerCase())
-      );
+      mentionedProducts = products.filter((p: any) => {
+        const productName = p.name.toLowerCase();
+        const productWords = productName.split(' ');
+        
+        // Buscar coincidencia exacta del nombre completo
+        if (lowerResponse.includes(productName)) return true;
+        
+        // Buscar palabras clave del producto (ej: "chaqueta" en "Chaqueta de Cuero")
+        return productWords.some((word: string) => 
+          word.length > 3 && lowerResponse.includes(word)
+        );
+      });
     }
 
     // Procesar tool calls si existen
