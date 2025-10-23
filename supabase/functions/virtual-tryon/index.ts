@@ -73,16 +73,28 @@ serve(async (req) => {
     }
 
     console.log("Preparing images for AI...");
-    // Convert product image to base64 data URL to ensure external provider can read it
-    const productRes = await fetch(productPhotoUrl);
-    if (!productRes.ok) {
-      console.error("Failed to fetch product image for conversion:", productRes.status, productRes.statusText);
+    // Fetch and convert BOTH images to base64 data URLs to avoid external fetch issues
+    const [productRes, userRes] = await Promise.all([
+      fetch(productPhotoUrl),
+      fetch(userPhotoUrl),
+    ]);
+
+    if (!productRes.ok || !userRes.ok) {
+      console.error("Failed to fetch images for conversion:", {
+        productStatus: productRes.status,
+        userStatus: userRes.status,
+      });
       return new Response(
-        JSON.stringify({ error: "No se pudo obtener la imagen de la prenda." }),
+        JSON.stringify({ error: "No se pudieron obtener las imágenes para la simulación." }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-    const productBuffer = await productRes.arrayBuffer();
+
+    const [productBuffer, userBuffer] = await Promise.all([
+      productRes.arrayBuffer(),
+      userRes.arrayBuffer(),
+    ]);
+
     function arrayBufferToBase64(buffer: ArrayBuffer): string {
       const bytes = new Uint8Array(buffer);
       let binary = '';
@@ -93,9 +105,12 @@ serve(async (req) => {
       }
       return btoa(binary);
     }
+
     const productMime = productRes.headers.get('content-type') || 'image/jpeg';
+    const userMime = userRes.headers.get('content-type') || 'image/jpeg';
+
     const productDataUrl = `data:${productMime};base64,${arrayBufferToBase64(productBuffer)}`;
-    const userImageUrl = userPhotoUrl;
+    const userDataUrl = `data:${userMime};base64,${arrayBufferToBase64(userBuffer)}`;
 
     // Call Lovable AI to merge the images
     const prompt = `Create a realistic fashion photo showing the person from the first image wearing the garment from the second image. 
@@ -123,7 +138,7 @@ serve(async (req) => {
               {
                 type: "image_url",
                 image_url: {
-                  url: userImageUrl
+                  url: userDataUrl
                 }
               },
               {
