@@ -8,6 +8,9 @@ import { useShop } from "@/contexts/ShopContext";
 import productTshirt from "@/assets/product-tshirt.jpg";
 import productJacket from "@/assets/product-jacket.jpg";
 import productCoat from "@/assets/product-coat.jpg";
+import productJeans from "@/assets/product-jeans.jpg";
+import productSneakers from "@/assets/product-sneakers.jpg";
+import productSkirt from "@/assets/product-skirt.jpg";
 
 const products = [
   {
@@ -27,6 +30,24 @@ const products = [
     name: "Abrigo Elegante",
     price: "€149.95",
     image: productCoat,
+  },
+  {
+    id: "4",
+    name: "Jean Clásico",
+    price: "€79.95",
+    image: productJeans,
+  },
+  {
+    id: "5",
+    name: "Zapatillas Deportivas",
+    price: "€89.95",
+    image: productSneakers,
+  },
+  {
+    id: "6",
+    name: "Falda Elegante",
+    price: "€69.95",
+    image: productSkirt,
   },
 ];
 
