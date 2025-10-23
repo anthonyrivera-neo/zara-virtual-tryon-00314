@@ -18,6 +18,9 @@ interface ShopContextType {
   addToCart: (product: Product) => void;
   triedProducts: Product[];
   addTriedProduct: (product: Product) => void;
+  selectedProducts: Product[];
+  toggleProductSelection: (product: Product) => void;
+  clearSelectedProducts: () => void;
 }
 
 const ShopContext = createContext<ShopContextType | undefined>(undefined);
@@ -26,6 +29,7 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
   const [isTryOnModeActive, setIsTryOnModeActive] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [triedProducts, setTriedProducts] = useState<Product[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
 
   const toggleTryOnMode = () => {
     setIsTryOnModeActive((prev) => !prev);
@@ -52,6 +56,20 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const toggleProductSelection = (product: Product) => {
+    setSelectedProducts((prev) => {
+      const exists = prev.find((p) => p.id === product.id);
+      if (exists) {
+        return prev.filter((p) => p.id !== product.id);
+      }
+      return [...prev, product];
+    });
+  };
+
+  const clearSelectedProducts = () => {
+    setSelectedProducts([]);
+  };
+
   return (
     <ShopContext.Provider
       value={{
@@ -61,6 +79,9 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
         addToCart,
         triedProducts,
         addTriedProduct,
+        selectedProducts,
+        toggleProductSelection,
+        clearSelectedProducts,
       }}
     >
       {children}
@@ -79,6 +100,9 @@ export const useShop = () => {
       addToCart: () => {},
       triedProducts: [],
       addTriedProduct: () => {},
+      selectedProducts: [],
+      toggleProductSelection: () => {},
+      clearSelectedProducts: () => {},
     } as ShopContextType;
   }
   return context;

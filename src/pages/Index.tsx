@@ -3,6 +3,7 @@ import { FloatingButton } from "@/components/FloatingButton";
 import { VirtualFittingModal } from "@/components/VirtualFittingModal";
 import { ProductCard } from "@/components/ProductCard";
 import { ChatbotAgent } from "@/components/ChatbotAgent";
+import { OutfitButton } from "@/components/OutfitButton";
 import { useShop } from "@/contexts/ShopContext";
 import productTshirt from "@/assets/product-tshirt.jpg";
 import productJacket from "@/assets/product-jacket.jpg";
@@ -33,12 +34,22 @@ const Index = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<typeof products[0] | null>(null);
-  const { addTriedProduct } = useShop();
+  const [isOutfitMode, setIsOutfitMode] = useState(false);
+  const { addTriedProduct, selectedProducts, clearSelectedProducts } = useShop();
 
   const handleTryOn = (product: typeof products[0]) => {
     setSelectedProduct(product);
     setIsModalOpen(true);
+    setIsOutfitMode(false);
     addTriedProduct(product);
+  };
+
+  const handleTryOutfit = () => {
+    if (selectedProducts.length > 0) {
+      setIsModalOpen(true);
+      setIsOutfitMode(true);
+      selectedProducts.forEach(product => addTriedProduct(product));
+    }
   };
 
   return (
@@ -190,6 +201,9 @@ const Index = () => {
       {/* Floating Button */}
       <FloatingButton onChatClick={() => setIsChatbotOpen(true)} />
 
+      {/* Outfit Button */}
+      <OutfitButton onTryOutfit={handleTryOutfit} />
+
       {/* Chatbot Agent */}
       <ChatbotAgent
         isOpen={isChatbotOpen}
@@ -203,8 +217,13 @@ const Index = () => {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedProduct(null);
+          setIsOutfitMode(false);
+          if (isOutfitMode) {
+            clearSelectedProducts();
+          }
         }}
-        selectedProduct={selectedProduct}
+        selectedProduct={isOutfitMode ? null : selectedProduct}
+        selectedProducts={isOutfitMode ? selectedProducts : undefined}
       />
     </div>
   );

@@ -9,11 +9,17 @@ import { CameraCapture } from "./CameraCapture";
 interface VirtualFittingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedProduct: {
+  selectedProduct?: {
     id: string;
     name: string;
     image: string;
   } | null;
+  selectedProducts?: Array<{
+    id: string;
+    name: string;
+    price: string;
+    image: string;
+  }>;
 }
 
 type Step = "select" | "upload" | "result";
@@ -22,6 +28,7 @@ export const VirtualFittingModal = ({
   isOpen,
   onClose,
   selectedProduct,
+  selectedProducts = [],
 }: VirtualFittingModalProps) => {
   const [step, setStep] = useState<Step>("upload");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -31,6 +38,9 @@ export const VirtualFittingModal = ({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isOutfitMode = selectedProducts.length > 0;
+  const currentProduct = isOutfitMode ? null : selectedProduct;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,7 +65,8 @@ export const VirtualFittingModal = ({
   };
 
   const handleTryOn = async () => {
-    if (!uploadedFile || !selectedProduct) return;
+    if (!uploadedFile) return;
+    if (!isOutfitMode && !currentProduct) return;
 
     setIsProcessing(true);
     const toastId = toast.loading("Subiendo tu foto...");
@@ -65,19 +76,36 @@ export const VirtualFittingModal = ({
       const photoUrl = await uploadUserPhoto(uploadedFile);
       setUploadedPhotoUrl(photoUrl);
       
-      // Convertir URL relativa del producto a URL absoluta
-      const productPhotoUrl = selectedProduct.image.startsWith('http') 
-        ? selectedProduct.image 
-        : `${window.location.origin}${selectedProduct.image}`;
-      
-      // Generar imagen con IA real
-      toast.loading("Conectando con el modelo de IA... Esto puede tomar 30-60 segundos", { id: toastId });
-      const result = await generateVirtualTryOn(
-        photoUrl, 
-        productPhotoUrl,
-        selectedProduct.name
-      );
-      setResultUrl(result);
+      if (isOutfitMode) {
+        // Modo outfit: múltiples prendas
+        const productNames = selectedProducts.map(p => p.name).join(", ");
+        const productImages = selectedProducts.map(p => 
+          p.image.startsWith('http') ? p.image : `${window.location.origin}${p.image}`
+        );
+        
+        toast.loading(`Generando outfit con ${selectedProducts.length} prendas... Esto puede tomar 30-60 segundos`, { id: toastId });
+        
+        // Usar la primera prenda como referencia principal y mencionar todas en el prompt
+        const result = await generateVirtualTryOn(
+          photoUrl, 
+          productImages[0],
+          `outfit completo con: ${productNames}`
+        );
+        setResultUrl(result);
+      } else if (currentProduct) {
+        // Modo individual: una prenda
+        const productPhotoUrl = currentProduct.image.startsWith('http') 
+          ? currentProduct.image 
+          : `${window.location.origin}${currentProduct.image}`;
+        
+        toast.loading("Conectando con el modelo de IA... Esto puede tomar 30-60 segundos", { id: toastId });
+        const result = await generateVirtualTryOn(
+          photoUrl, 
+          productPhotoUrl,
+          currentProduct.name
+        );
+        setResultUrl(result);
+      }
       
       toast.success("¡Imagen generada con IA exitosamente!", { id: toastId });
       setStep("result");
@@ -93,13 +121,20 @@ export const VirtualFittingModal = ({
   };
 
   const handleFeedback = async (positive: boolean) => {
-    if (!uploadedPhotoUrl || !selectedProduct || !resultUrl) return;
+    if (!uploadedPhotoUrl || !resultUrl) return;
 
     try {
+      const productName = isOutfitMode 
+        ? `Outfit: ${selectedProducts.map(p => p.name).join(", ")}`
+        : currentProduct?.name || "";
+      const productImage = isOutfitMode 
+        ? selectedProducts[0]?.image || ""
+        : currentProduct?.image || "";
+
       await saveUserResult(
         uploadedPhotoUrl,
-        selectedProduct.image,
-        selectedProduct.name,
+        productImage,
+        productName,
         resultUrl,
         positive ? 'like' : 'dislike'
       );
@@ -135,7 +170,7 @@ export const VirtualFittingModal = ({
     setResultUrl(null);
   };
 
-  if (!isOpen || !selectedProduct) return null;
+  if (!isOpen || (!currentProduct && !isOutfitMode)) return null;
 
   return (
     <AnimatePresence>
@@ -196,22 +231,45 @@ export const VirtualFittingModal = ({
                 >
                   <div className="text-center">
                     <h3 className="text-xl font-light mb-2">
-                      Probando: <span className="font-medium">{selectedProduct.name}</span>
+                      {isOutfitMode ? (
+                        <>
+                          Probando: <span className="font-medium">Outfit Completo</span>
+                        </>
+                      ) : (
+                        <>
+                          Probando: <span className="font-medium">{currentProduct?.name}</span>
+                        </>
+                      )}
                     </h3>
                     <p className="text-muted-foreground text-sm">
-                      Sube una foto tuya para ver cómo te quedaría esta prenda
+                      Sube una foto tuya para ver cómo te quedaría{isOutfitMode ? " este outfit" : " esta prenda"}
                     </p>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
-                    {/* Product Image */}
+                    {/* Product Image(s) */}
                     <div className="space-y-3">
-                      <p className="text-sm font-medium text-muted-foreground">Prenda seleccionada</p>
-                      <img
-                        src={selectedProduct.image}
-                        alt={selectedProduct.name}
-                        className="w-full aspect-square object-cover rounded-xl"
-                      />
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {isOutfitMode ? "Prendas seleccionadas" : "Prenda seleccionada"}
+                      </p>
+                      {isOutfitMode ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedProducts.slice(0, 4).map((product) => (
+                            <img
+                              key={product.id}
+                              src={product.image}
+                              alt={product.name}
+                              className="w-full aspect-square object-cover rounded-lg"
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <img
+                          src={currentProduct?.image}
+                          alt={currentProduct?.name}
+                          className="w-full aspect-square object-cover rounded-xl"
+                        />
+                      )}
                     </div>
 
                     {/* Upload Area */}
@@ -332,7 +390,7 @@ export const VirtualFittingModal = ({
                   {/* Result Image - AI Generated */}
                   <div className="relative">
                     <img
-                      src={resultUrl || uploadedImage || selectedProduct.image}
+                      src={resultUrl || uploadedImage || (isOutfitMode ? selectedProducts[0]?.image : currentProduct?.image) || ""}
                       alt="Result"
                       className="w-full max-w-md mx-auto aspect-[3/4] object-cover rounded-xl shadow-lg"
                     />

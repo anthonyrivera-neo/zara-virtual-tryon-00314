@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Eye } from "lucide-react";
 import { useShop } from "@/contexts/ShopContext";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ProductCardProps {
   id: string;
@@ -10,15 +11,25 @@ interface ProductCardProps {
   onTryOn: () => void;
 }
 
-export const ProductCard = ({ name, price, image, onTryOn }: ProductCardProps) => {
-  const { isTryOnModeActive } = useShop();
+export const ProductCard = ({ id, name, price, image, onTryOn }: ProductCardProps) => {
+  const { isTryOnModeActive, selectedProducts, toggleProductSelection } = useShop();
+  const isSelected = selectedProducts.some((p) => p.id === id);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
-      className="group cursor-pointer"
+      className="group cursor-pointer relative"
     >
+      {isTryOnModeActive && (
+        <div className="absolute top-3 right-3 z-10">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleProductSelection({ id, name, price, image })}
+            className="bg-white/90 backdrop-blur-sm border-2"
+          />
+        </div>
+      )}
       <div className="relative overflow-hidden rounded-2xl bg-secondary aspect-square mb-4">
         <img
           src={image}

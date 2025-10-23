@@ -156,9 +156,9 @@ export const ChatbotAgent = ({ isOpen, onClose, products }: ChatbotAgentProps) =
                     className="scale-75"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {isTryOnModeActive ? "Modo prueba activo" : "Modo prueba inactivo"}
-                </p>
+                <span className="text-xs text-muted-foreground block mt-1">
+                  {isTryOnModeActive ? "Modo outfit activo" : "Modo outfit desactivado"}
+                </span>
               </div>
             </div>
             <button
