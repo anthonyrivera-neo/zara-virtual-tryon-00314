@@ -14,60 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      simulations: {
-        Row: {
-          created_at: string | null
-          id: string
-          product_name: string
-          product_url: string
-          result_url: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          product_name: string
-          product_url: string
-          result_url: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          product_name?: string
-          product_url?: string
-          result_url?: string
-        }
-        Relationships: []
-      }
-      user_results: {
-        Row: {
-          created_at: string | null
-          feedback: string | null
-          id: string
-          product_name: string
-          product_url: string
-          result_url: string
-          user_photo_url: string
-        }
-        Insert: {
-          created_at?: string | null
-          feedback?: string | null
-          id?: string
-          product_name: string
-          product_url: string
-          result_url: string
-          user_photo_url: string
-        }
-        Update: {
-          created_at?: string | null
-          feedback?: string | null
-          id?: string
-          product_name?: string
-          product_url?: string
-          result_url?: string
-          user_photo_url?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
